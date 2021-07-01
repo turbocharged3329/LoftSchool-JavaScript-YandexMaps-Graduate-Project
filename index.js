@@ -24,7 +24,7 @@ function init() {
 
   function clustererHandler(e) {
     if (e.get("target").options._name === "cluster") {
-      feedbacks = createFeedsForCluster(findUniqCoordsInClusterer(e));
+      const feedbacks = createFeedsForCluster(findUniqCoordsInClusterer(e));
       myMap.balloon.open(
         e.get("target").geometry.getCoordinates(),
         createBalloonContent(feedbacks)
@@ -48,7 +48,7 @@ function init() {
   }
 
   function createFeedsForCluster(places) {
-    feedbacks = [];
+    const feedbacks = [];
     places.forEach((place) => {
       const feeds = createFeedbacks(place.split(":"));
       feeds.forEach((feed) => {
@@ -70,7 +70,8 @@ function init() {
     if (feedbacks.length > 0) {
       const feedbackWrapper = template.querySelector(".feedback-wrapper");
       const fragment = document.createDocumentFragment();
-      for (let feed of feedbacks) {
+
+      feedbacks.forEach((feed) => {
         const name = document.createElement("h2");
         name.textContent = feed.name;
         fragment.appendChild(name);
@@ -78,19 +79,21 @@ function init() {
         fragment.appendChild(feedback);
         feedback.textContent = feed.feedback;
         feedbackWrapper.appendChild(fragment);
-      }
+      });
     }
 
     return template.innerHTML;
   }
 
   function createFeedbacks(coords) {
-    const feedbacks = [];
     const placemarks = getMarksFormStorage();
-    for (let place of placemarks) {
-      if (place.coords === coords.join(":")) feedbacks.push(place.feedback);
-    }
-    return feedbacks;
+
+    return placemarks.reduce((acc, current) => {
+      if (current.coords === coords.join(":")) {
+        acc.push(current.feedback);
+      }
+      return acc;
+    }, []);
   }
 
   function openBalloon(coords, content = null) {
@@ -105,9 +108,17 @@ function init() {
   }
 
   function createPlacemark(coords, place) {
-    var placemark = new ymaps.Placemark(coords, {
-      hintContent: place,
-    });
+    var placemark = new ymaps.Placemark(
+      coords,
+      {
+        hintContent: place,
+      },
+      {
+        iconLayout: "default#image",
+        iconImageHref: "./assets/pin.png",
+        iconImageSize: [36, 36],
+      }
+    );
 
     return placemark;
   }
@@ -129,18 +140,16 @@ function init() {
   }
 
   function getMarksFormStorage() {
-    const placemarks = [];
-    for (let key of Object.keys(storage)) {
-      const feeds = storage[`${key}`].split(";");
+    return Object.keys((storage)).reduce((acc, current) => {
+      const feeds = storage[`${current}`].split(";");
       feeds.forEach((feed) => {
-        placemarks.push({
-          coords: key,
+        acc.push({
+          coords: current,
           feedback: JSON.parse(feed),
         });
       });
-    }
-
-    return placemarks;
+      return acc;
+    }, []);
   }
 
   function setPlacemarksOnMap() {
@@ -149,14 +158,17 @@ function init() {
 
     for (let place of placemarks) {
       const coords = place.coords.split(":");
-      const placemark = new ymaps.Placemark(coords, {
-        hintContent: place.feedback.place,
-      },
-      {
-      iconLayout: 'default#image',
-      iconImageHref: './assets/pin.png',
-      iconImageSize: [36, 36]
-      });
+      const placemark = new ymaps.Placemark(
+        coords,
+        {
+          hintContent: place.feedback.place,
+        },
+        {
+          iconLayout: "default#image",
+          iconImageHref: "./assets/pin.png",
+          iconImageSize: [36, 36],
+        }
+      );
       placemark.events.add("click", openPlacemarkBalloon);
       clusterer.add(placemark);
     }
@@ -180,16 +192,20 @@ function init() {
     myMap.balloon.close();
   }
 
-  var clusterer = createClusterer();
-
-  setPlacemarksOnMap();
-  myMap.events.add("click", (e) => {
+  function showMapBallon(e) {
     const content = createBalloonContent();
     openBalloon(e.get("coords"), content);
-  });
-  document.addEventListener("click", (e) => {
+  }
+
+  function saveFeedback(e) {
     if (e.target.classList.contains("add-feedback-button")) {
       addPlacemark(e, myMap.balloon.getPosition());
     }
-  });
+  }
+
+  const clusterer = createClusterer();
+
+  setPlacemarksOnMap();
+  myMap.events.add("click", showMapBallon);
+  document.addEventListener("click", saveFeedback);
 }

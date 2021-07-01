@@ -10,6 +10,24 @@
 </head>
 <body>
     <div id="map" class="map"></div>
-    <script id="balloon-template" type="text/x-handlebars-template"></script>
+    <script class="balloon-template" type="template">
+        <div class="balloon-wrapper">
+            <div class="feedback-wrapper">
+            </div>
+            <h1>Отзыв:</h1>
+                <div>
+                <input type="text" class="enter-name" placeholder="Укажите ваше имя"/>
+                </div>
+                <div>
+                <input type="text" class="enter-place" placeholder="Укажите место" />
+                </div>
+                <div>
+                <textarea  class="enter-feedback" placeholder="Оcтавьте отзыв"></textarea>
+                </div>
+                <div class="add-feedback">
+                <button class="add-feedback-button">Добавить</button>
+                </div>
+                </div>
+    </script>
 </body>
 </html>

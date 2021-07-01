@@ -10,171 +10,186 @@ function init() {
     behaviors: ["drag"],
   });
 
-  function createBalloonTemplate(feedbacks) {
-    console.log(feedbacks);
-    const balloonTemplate = Handlebars.compile(
-      `<div class="balloon-wrapper">
-      {{#each feedbacks}}
-      <div class="feedback-wrapper">
-      <h3>{{name}}</h3>
-      <p>{{feedback}}</p> 
-      </div>
-      {{/each}}
-      <h1>Отзыв:</h1>
-          <div>
-          <input type="text" class="enter-name" placeholder="Укажите ваше имя"/>
-          </div>
-          <div>
-          <input type="text" class="enter-place" placeholder="Укажите место" />
-          </div>
-          <div>
-          <textarea  class="enter-feedback" placeholder="Оcтавьте отзыв"></textarea>
-          </div>
-          <div class="add-feedback">
-          <button class="add-feedback-button">Добавить</button>
-          </div>
-          </div>`
-    );
-    console.log(balloonTemplate(feedbacks))
-    return balloonTemplate(feedbacks);
-  }
-
-  function createFeedbacksArr(coords) {
-    const feedbacks = [];
-    const feedsFromStorage = storage[`${coords[0]}:${coords[1]}`].split(';');
-    for (let feed of feedsFromStorage) {
-      feedbacks.push(
-        {name: JSON.parse(feed).name,
-        feedback: JSON.parse(feed).feedback
-        }
-        )
-    }
-    return {feedbacks};
-  }
-
-  function openBalloon(e) {
-    if(e.get('target').geometry) {
-      const coords = e.get('target').geometry.getCoordinates();
-      const feedbacks = createFeedbacksArr(coords);
-      myMap.balloon.open(coords,{
-        content: createBalloonTemplate(feedbacks),
-      },{ 
-        closeButton: true }
-    );
-        console.log(myMap.balloon);
-    }
-    else {
-    const coords = e.get("coords");
-    myMap.balloon.open(coords,{
-        content: createBalloonTemplate(),
-      },{ 
-        closeButton: true }
-    );
-      }
-  }
-
-  function createPlacemark(coords, place) {
-    var placemark = new ymaps.Placemark([coords[0], coords[1]], {
-      hintContent: place,
-      balloonContent: createBalloonTemplate()
-    });
-    return placemark;
-  }
-
-  function writePlacemarkToStoarge(coords,name,place,feedback) {
-    storage[`${coords[0]}:${coords[1]}`] = JSON.stringify({
-      name: name,
-      place: place,
-      feedback: feedback,
-    });
-  }
-
-  //получение данных о метках из хранилища
-  function getMarksFormStorage() {
-    console.log(storage['points'].split(';'));
-    // const posOfMarks = Object.keys(storage);
-
-    // const markers = [];
-
-    // for (key in posOfMarks) {
-    //   const placemark = {
-    //     center: [posOfMarks[key].split(":")[0], posOfMarks[key].split(":")[1]],
-    //     feedbacks: (storage[`${posOfMarks[key]}`]), 
-    //   };
-    //   markers.push(placemark);
-    // }
-
-    return markers;
-  }
-
-  //установка меток на карте
-  function setMarksOnMap() {
-    const markers = getMarksFormStorage();
- 
+  function createClusterer() {
     var clusterer = new ymaps.Clusterer({
       clusterDisableClickZoom: true,
       clusterBalloonCycling: false,
-      clusterBalloonPagerType: "marker",
-      clusterBalloonPagerSize: 6,
-      clusterBalloonContentLayout: 'cluster#balloonCarousel',
-  });
+      clusterGroupByCoordinates: true,
+      clusterOpenBalloonOnClick: false,
+    });
+    clusterer.events.add("click", clustererHandler);
 
+    return clusterer;
+  }
 
-    for (let mark of markers) {
-      const placemark = new ymaps.Placemark({ type: "Point",
-      coordinates: mark.center}, {
-        hintContent: "I was added",
-        clusterCaption: 'Геообъект № ',
-        balloonContentBody: [
-          '<div id="feedback-results" class="feedback-results">',
-          '<div>',
-          '<div id="loader-container">',
-          '<img class="loader" src="./assets/loader.gif" /></div>',
-          "</div>",
-          '<div class="feedback-info">',
-          "<h3>Оставьте отзыв:</h3>",
-          "<div>",
-          '<input type="text" id="enter-name" placeholder="Укажите ваше имя"/>',
-          "</div>",
-          "<div>",
-          '<input type="text" id="enter-place" placeholder="Укажите место" />',
-          "</div>",
-          "<div>",
-          '<textarea  id="enter-feedback" placeholder="Оcтавьте отзыв"></textarea>',
-          "</div>",
-          "</div>",
-          '<div class="add-feedback">',
-          '<button id="add-feedback-button">Добавить</button>',
-          "</div>",
-        ].join(""),
-      });
-      placemark.events.add("balloonopen", (e) => {
-        setTimeout(() => balloonActions(mark.center, mark.feedbacks), 1010);
-      });
-      clusterer.add(placemark);
+  function clustererHandler(e) {
+    if (e.get("target").options._name === "cluster") {
+      feedbacks = createFeedsForCluster(findUniqCoordsInClusterer(e));
+      myMap.balloon.open(
+        e.get("target").geometry.getCoordinates(),
+        createBalloonContent(feedbacks)
+      );
     }
+  }
+
+  function findUniqCoordsInClusterer(e) {
+    const gObjects = e.get("target").getGeoObjects();
+    const uniqCoords = [];
+    gObjects.forEach((obj) => {
+      const coords = `${obj.geometry.getCoordinates()[0]}:${
+        obj.geometry.getCoordinates()[1]
+      }`;
+      if (!uniqCoords.includes(coords)) {
+        uniqCoords.push(coords);
+      }
+    });
+
+    return uniqCoords;
+  }
+
+  function createFeedsForCluster(places) {
+    feedbacks = [];
+    places.forEach((place) => {
+      const feeds = createFeedbacks(place.split(":"));
+      feeds.forEach((feed) => {
+        feedbacks.push(feed);
+      });
+    });
+
+    return feedbacks;
+  }
+
+  function addClustererOnMap(clusterer) {
     myMap.geoObjects.add(clusterer);
   }
- 
- 
-  //оживление формы балуна для еще не созданой метки
-  function balloonActions(e, feedbacks = {}) {
-    if (e.target.classList.contains('add-feedback-button')){
-    const coords = myMap.balloon.getPosition();
-    const wrapper = e.target.closest('.balloon-wrapper');
-    const enterName = wrapper.querySelector('.enter-name');
-    const enterPlace = wrapper.querySelector('.enter-place');
-    const enterFeedback = wrapper.querySelector('.enter-feedback');
-    const placemark = createPlacemark(coords, enterPlace.value);
-    
-    writePlacemarkToStoarge(coords, enterName.value, enterPlace.value, enterFeedback.value);
-    placemark.events.add('click', openBalloon);
-    myMap.geoObjects.add(placemark);
-    myMap.balloon.close();
+
+  function createBalloonContent(feedbacks = {}) {
+    const template = document.createElement("div");
+    template.innerHTML = document.querySelector(".balloon-template").innerHTML;
+
+    if (feedbacks.length > 0) {
+      const feedbackWrapper = template.querySelector(".feedback-wrapper");
+      const fragment = document.createDocumentFragment();
+      for (let feed of feedbacks) {
+        const name = document.createElement("h2");
+        name.textContent = feed.name;
+        fragment.appendChild(name);
+        const feedback = document.createElement("p");
+        fragment.appendChild(feedback);
+        feedback.textContent = feed.feedback;
+        feedbackWrapper.appendChild(fragment);
+      }
+    }
+
+    return template.innerHTML;
+  }
+
+  function createFeedbacks(coords) {
+    const feedbacks = [];
+    const placemarks = getMarksFormStorage();
+    for (let place of placemarks) {
+      if (place.coords === coords.join(":")) feedbacks.push(place.feedback);
+    }
+    return feedbacks;
+  }
+
+  function openBalloon(coords, content = null) {
+    const feedbacks = createFeedbacks(coords);
+    const template = createBalloonContent(feedbacks);
+    myMap.balloon.open(coords, template);
+  }
+
+  function openPlacemarkBalloon(e) {
+    const coords = e.get("target").geometry.getCoordinates();
+    openBalloon(coords);
+  }
+
+  function createPlacemark(coords, place) {
+    var placemark = new ymaps.Placemark(coords, {
+      hintContent: place,
+    });
+
+    return placemark;
+  }
+
+  function writePlacemarkToStoarge(coords, name, place, feedback) {
+    storage[`${coords[0]}:${coords[1]}`] === undefined
+      ? (storage[`${coords[0]}:${coords[1]}`] = JSON.stringify({
+          name: name,
+          place: place,
+          feedback: feedback,
+        }))
+      : (storage[`${coords[0]}:${coords[1]}`] +=
+          ";" +
+          JSON.stringify({
+            name: name,
+            place: place,
+            feedback: feedback,
+          }));
+  }
+
+  function getMarksFormStorage() {
+    const placemarks = [];
+    for (let key of Object.keys(storage)) {
+      const feeds = storage[`${key}`].split(";");
+      feeds.forEach((feed) => {
+        placemarks.push({
+          coords: key,
+          feedback: JSON.parse(feed),
+        });
+      });
+    }
+
+    return placemarks;
+  }
+
+  function setPlacemarksOnMap() {
+    addClustererOnMap(clusterer);
+    const placemarks = getMarksFormStorage();
+
+    for (let place of placemarks) {
+      const coords = place.coords.split(":");
+      const placemark = new ymaps.Placemark(coords, {
+        hintContent: place.feedback.place,
+      },
+      {
+      iconLayout: 'default#image',
+      iconImageHref: './assets/pin.png',
+      iconImageSize: [36, 36]
+      });
+      placemark.events.add("click", openPlacemarkBalloon);
+      clusterer.add(placemark);
     }
   }
 
-  // setMarksOnMap();
-  myMap.events.add('click', openBalloon);
-  document.addEventListener('click', balloonActions);
+  function addPlacemark(e, coords) {
+    const wrapper = e.target.closest(".balloon-wrapper");
+    const enterName = wrapper.querySelector(".enter-name");
+    const enterPlace = wrapper.querySelector(".enter-place");
+    const enterFeedback = wrapper.querySelector(".enter-feedback");
+    const placemark = createPlacemark(coords, enterPlace.value);
+
+    writePlacemarkToStoarge(
+      coords,
+      enterName.value,
+      enterPlace.value,
+      enterFeedback.value
+    );
+    placemark.events.add("click", openPlacemarkBalloon);
+    clusterer.add(placemark);
+    myMap.balloon.close();
+  }
+
+  var clusterer = createClusterer();
+
+  setPlacemarksOnMap();
+  myMap.events.add("click", (e) => {
+    const content = createBalloonContent();
+    openBalloon(e.get("coords"), content);
+  });
+  document.addEventListener("click", (e) => {
+    if (e.target.classList.contains("add-feedback-button")) {
+      addPlacemark(e, myMap.balloon.getPosition());
+    }
+  });
 }

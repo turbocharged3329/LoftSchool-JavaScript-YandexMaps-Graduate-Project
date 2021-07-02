@@ -17,6 +17,7 @@ function init() {
       clusterGroupByCoordinates: true,
       clusterOpenBalloonOnClick: false,
     });
+
     clusterer.events.add("click", clustererHandler);
 
     return clusterer;
@@ -25,6 +26,7 @@ function init() {
   function clustererHandler(e) {
     if (e.get("target").options._name === "cluster") {
       const feedbacks = createFeedsForCluster(findUniqCoordsInClusterer(e));
+
       myMap.balloon.open(
         e.get("target").geometry.getCoordinates(),
         createBalloonContent(feedbacks)
@@ -92,7 +94,7 @@ function init() {
 
     return placemarks.reduce((acc, current) => {
       if (current.coords === coords.join(":")) {
-        acc.push(current.feedback);
+        return [...acc, current.feedback]
       }
       return acc;
     }, []);
@@ -101,6 +103,7 @@ function init() {
   function openBalloon(coords, content = null) {
     const feedbacks = createFeedbacks(coords);
     const template = createBalloonContent(feedbacks);
+
     myMap.balloon.open(coords, template);
   }
 

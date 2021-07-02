@@ -3,7 +3,7 @@ ymaps.ready(init);
 let storage = localStorage;
 
 function init() {
-  var myMap = new ymaps.Map("map", {
+  const myMap = new ymaps.Map("map", {
     center: [56.14273210871949, 40.403456925781235],
     zoom: 11,
     controls: ["zoomControl"],
@@ -11,7 +11,7 @@ function init() {
   });
 
   function createClusterer() {
-    var clusterer = new ymaps.Clusterer({
+    const clusterer = new ymaps.Clusterer({
       clusterDisableClickZoom: true,
       clusterBalloonCycling: false,
       clusterGroupByCoordinates: true,
@@ -35,6 +35,7 @@ function init() {
   function findUniqCoordsInClusterer(e) {
     const gObjects = e.get("target").getGeoObjects();
     const uniqCoords = [];
+
     gObjects.forEach((obj) => {
       const coords = `${obj.geometry.getCoordinates()[0]}:${
         obj.geometry.getCoordinates()[1]
@@ -49,6 +50,7 @@ function init() {
 
   function createFeedsForCluster(places) {
     const feedbacks = [];
+
     places.forEach((place) => {
       const feeds = createFeedbacks(place.split(":"));
       feeds.forEach((feed) => {
@@ -108,7 +110,7 @@ function init() {
   }
 
   function createPlacemark(coords, place) {
-    var placemark = new ymaps.Placemark(
+    const placemark = new ymaps.Placemark(
       coords,
       {
         hintContent: place,
@@ -124,7 +126,7 @@ function init() {
   }
 
   function writePlacemarkToStoarge(coords, name, place, feedback) {
-    storage[`${coords[0]}:${coords[1]}`] === undefined
+    !storage[`${coords[0]}:${coords[1]}`]
       ? (storage[`${coords[0]}:${coords[1]}`] = JSON.stringify({
           name: name,
           place: place,
@@ -156,7 +158,7 @@ function init() {
     addClustererOnMap(clusterer);
     const placemarks = getMarksFormStorage();
 
-    for (let place of placemarks) {
+    placemarks.forEach((place) => {
       const coords = place.coords.split(":");
       const placemark = new ymaps.Placemark(
         coords,
@@ -171,7 +173,7 @@ function init() {
       );
       placemark.events.add("click", openPlacemarkBalloon);
       clusterer.add(placemark);
-    }
+    });
   }
 
   function addPlacemark(e, coords) {
